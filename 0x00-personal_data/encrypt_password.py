@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-""" encrypt_password module """
+"""
 
+Encrypting passwords
 
+"""
 
 import bcrypt
 
@@ -12,38 +14,30 @@ import bcrypt
 
 def hash_password(password: str) -> bytes:
 
-        """
+        """ Returns a salted, hashed password, which is a byte string """
 
-                Args:
+            encoded = password.encode()
 
-                            password: the password to encrypt
+                hashed = bcrypt.hashpw(encoded, bcrypt.gensalt())
 
-                                    Returns:
 
-                                                A salted and hashed password.
 
-                                                    """
-
-                                                        return bcrypt.hashpw(str.encode(password), bcrypt.gensalt())
+                    return hashed
 
 
 
 
 
-                                                    def is_valid(hashed_password: bytes, password: str) -> bool:
+                def is_valid(hashed_password: bytes, password: str) -> bool:
 
-                                                            """
+                        """ Validates the provided password matches the hashed password """
 
-                                                                    Args:
+                            valid = False
 
-                                                                                hashed_password: the hashed password
+                                encoded = password.encode()
 
-                                                                                            password: the password to encrypt
+                                    if bcrypt.checkpw(encoded, hashed_password):
 
-                                                                                                    Returns:
+                                                valid = True
 
-                                                                                                                True if password is valid, False else.
-
-                                                                                                                    """
-
-                                                                                                                        return bcrypt.checkpw(str.encode(password), hashed_password)
+                                                    return valid

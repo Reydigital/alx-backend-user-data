@@ -1,17 +1,19 @@
 
-gger module """
+dule for handling Personal Data
 
+"""
 
-
-import logging
+from typing import List
 
 import re
 
-import os
+import logging
+
+from os import environ
 
 import mysql.connector
 
-from typing import List
+
 
 
 
@@ -21,218 +23,156 @@ PII_FIELDS = ("name", "email", "phone", "ssn", "password")
 
 
 
-def filter_datum(
+def filter_datum(fields: List[str], redaction: str,
 
-        fields: List[str],
+                 message: str, separator: str) -> str:
 
-                redaction: str,
+                     """ Returns a log message obfuscated """
 
-                        message: str,
+                         for f in fields:
 
-                                separator: str) -> str:
+                                 message = re.sub(f'{f}=.*?{separator}',
 
-                                    """
+                                                          f'{f}={redaction}{separator}', message)
 
-                                            Args:
-
-                                                            fields: all fields to obfuscate
-
-                                                                        redaction: by what the field will be obfuscated
-
-                                                                                    message: the log line
-
-                                                                                                separator: by which character separate all fields in the message
-
-                                                                                                        Returns:
-
-                                                                                                                        The log message, obfuscated.
-
-                                                                                                                            """
-
-
-
-                                                                                                                                for field in fields:
-
-                                                                                                                                        message = re.sub(fr'{field}=([^=]*){separator}',
-
-                                                                                                                                                                 fr'{field}={redaction}{separator}', message)
-
-                                                                                                                                                                     return message
+                                                              return message
 
 
 
 
 
-                                                                                                                                                                     class RedactingFormatter(logging.Formatter):
+                                                              def get_logger() -> logging.Logger:
 
-                                                                                                                                                                         """
+                                                                  """ Returns a Logger Object """
 
-                                                                                                                                                                                 Redacting Formatter class
+                                                                      logger = logging.getLogger("user_data")
 
-                                                                                                                                                                                     """
+                                                                          logger.setLevel(logging.INFO)
 
-
-
-                                                                                                                                                                                         REDACTION = "***"
-
-                                                                                                                                                                                             FORMAT = "[HOLBERTON] %(name)s %(levelname)s %(asctime)-15s: %(message)s"
-
-                                                                                                                                                                                                 SEPARATOR = ";"
+                                                                              logger.propagate = False
 
 
 
-                                                                                                                                                                                                     def __init__(self, fields: List[str]):
+                                                                                  stream_handler = logging.StreamHandler()
 
-                                                                                                                                                                                                             self.fields = fields
+                                                                                      stream_handler.setFormatter(RedactingFormatter(list(PII_FIELDS)))
 
-                                                                                                                                                                                                                     super(RedactingFormatter, self).__init__(self.FORMAT)
+                                                                                          logger.addHandler(stream_handler)
 
 
 
-                                                                                                                                                                                                                         def format(self, record: logging.LogRecord) -> str:
+                                                                                              return logger
 
-                                                                                                                                                                                                                                 """
 
-                                                                                                                                                                                                                                             Args:
 
-                                                                                                                                                                                                                                                                 record: incoming log record.
 
-                                                                                                                                                                                                                                                                             Returns:
 
-                                                                                                                                                                                                                                                                                                 String with filtered values.
+                                                                                              def get_db() -> mysql.connector.connection.MySQLConnection:
+
+                                                                                                  """ Returns a connector to a MySQL database """
+
+                                                                                                      username = environ.get("PERSONAL_DATA_DB_USERNAME", "root")
+
+                                                                                                          password = environ.get("PERSONAL_DATA_DB_PASSWORD", "")
+
+                                                                                                              host = environ.get("PERSONAL_DATA_DB_HOST", "localhost")
+
+                                                                                                                  db_name = environ.get("PERSONAL_DATA_DB_NAME")
+
+
+
+                                                                                                                      cnx = mysql.connector.connection.MySQLConnection(user=username,
+
+                                                                                                                                                                           password=password,
+
+                                                                                                                                                                                                                                host=host,
+
+                                                                                                                                                                                                                                                                                     database=db_name)
+
+                                                                                                                                                                                                                                                                                         return cnx
+
+
+
+
+
+                                                                                                                                                                                                                                                                                         def main():
+
+                                                                                                                                                                                                                                                                                             """
+
+                                                                                                                                                                                                                                                                                                 Obtain a database connection using get_db and retrieves all rows
+
+                                                                                                                                                                                                                                                                                                     in the users table and display each row under a filtered format
 
                                                                                                                                                                                                                                                                                                          """
 
-                                                                                                                                                                                                                                                                                                                 return filter_datum(self.fields, self.REDACTION,
+                                                                                                                                                                                                                                                                                                             db = get_db()
 
-                                                                                                                                                                                                                                                                                                                                             super().format(record), self.SEPARATOR)
+                                                                                                                                                                                                                                                                                                                 cursor = db.cursor()
 
+                                                                                                                                                                                                                                                                                                                     cursor.execute("SELECT * FROM users;")
 
+                                                                                                                                                                                                                                                                                                                         field_names = [i[0] for i in cursor.description]
 
 
 
-                                                                                                                                                                                                                                                                                                                                             def get_logger() -> logging.Logger:
+                                                                                                                                                                                                                                                                                                                             logger = get_logger()
 
-                                                                                                                                                                                                                                                                                                                                                 """
 
-                                                                                                                                                                                                                                                                                                                                                         Returns:
 
-                                                                                                                                                                                                                                                                                                                                                                         The Logger object.
+                                                                                                                                                                                                                                                                                                                                 for row in cursor:
 
-                                                                                                                                                                                                                                                                                                                                                                             """
+                                                                                                                                                                                                                                                                                                                                         str_row = ''.join(f'{f}={str(r)}; ' for r, f in zip(row, field_names))
 
-                                                                                                                                                                                                                                                                                                                                                                                 logger = logging.getLogger("user_data")
+                                                                                                                                                                                                                                                                                                                                                 logger.info(str_row.strip())
 
-                                                                                                                                                                                                                                                                                                                                                                                     logger.setLevel(logging.INFO)
 
-                                                                                                                                                                                                                                                                                                                                                                                         logger.propagate = False
 
+                                                                                                                                                                                                                                                                                                                                                     cursor.close()
 
+                                                                                                                                                                                                                                                                                                                                                         db.close()
 
-                                                                                                                                                                                                                                                                                                                                                                                             ch = logging.StreamHandler()
 
-                                                                                                                                                                                                                                                                                                                                                                                                 ch.setLevel(logging.INFO)
 
-                                                                                                                                                                                                                                                                                                                                                                                                     ch.setFormatter(RedactingFormatter(PII_FIELDS))
 
 
+                                                                                                                                                                                                                                                                                                                                                         class RedactingFormatter(logging.Formatter):
 
-                                                                                                                                                                                                                                                                                                                                                                                                         logger.addHandler(ch)
+                                                                                                                                                                                                                                                                                                                                                             """ Redacting Formatter class
 
+                                                                                                                                                                                                                                                                                                                                                                     """
 
 
-                                                                                                                                                                                                                                                                                                                                                                                                             return logger
 
+                                                                                                                                                                                                                                                                                                                                                                         REDACTION = "***"
 
+                                                                                                                                                                                                                                                                                                                                                                             FORMAT = "[HOLBERTON] %(name)s %(levelname)s %(asctime)-15s: %(message)s"
 
+                                                                                                                                                                                                                                                                                                                                                                                 SEPARATOR = ";"
 
 
-                                                                                                                                                                                                                                                                                                                                                                                                             def get_db() -> mysql.connector.connection.MySQLConnection:
 
-                                                                                                                                                                                                                                                                                                                                                                                                                 """
+                                                                                                                                                                                                                                                                                                                                                                                     def __init__(self, fields: List[str]):
 
-                                                                                                                                                                                                                                                                                                                                                                                                                         Returns:
+                                                                                                                                                                                                                                                                                                                                                                                             super(RedactingFormatter, self).__init__(self.FORMAT)
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                         The MySQLConnection object.
+                                                                                                                                                                                                                                                                                                                                                                                                     self.fields = fields
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                             """
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                 user = os.getenv("PERSONAL_DATA_DB_USERNAME") or "root"
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                     pswd = os.getenv("PERSONAL_DATA_DB_PASSWORD") or ""
+                                                                                                                                                                                                                                                                                                                                                                                                         def format(self, record: logging.LogRecord) -> str:
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                         host = os.getenv("PERSONAL_DATA_DB_HOST") or "localhost"
+                                                                                                                                                                                                                                                                                                                                                                                                                 """ Filters values in incoming log records using filter_datum """
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                             name = os.getenv("PERSONAL_DATA_DB_NAME")
+                                                                                                                                                                                                                                                                                                                                                                                                                         record.msg = filter_datum(self.fields, self.REDACTION,
 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                           record.getMessage(), self.SEPARATOR)
 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                   return super(RedactingFormatter, self).format(record)
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                 return mysql.connector.connect(
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                         host=host,
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 user=user,
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         password=pswd,
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 database=name)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                   if __name__ == '__main__':
 
-
-
-
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 if __name__ == '__main__':
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     db = get_db()
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         cursor = db.cursor()
-
-
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             query = "SELECT group_concat(COLUMN_NAME) FROM INFORMATION_SCHEMA.COLUMNS\
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 WHERE TABLE_SCHEMA = 'my_db' AND TABLE_NAME = 'users';"
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     cursor.execute(query)
-
-
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         for row in cursor:
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 keys = row[0]
-
-
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     keys = keys.split(',')
-
-
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         cursor.execute("SELECT * FROM users;")
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             for row in cursor:
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     to_join = [f'{k}={v}' for k, v in zip(keys, row)]
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             message = "; ".join(to_join)
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     message += ';'
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             log_record = logging.LogRecord("user_data", logging.INFO, None, None,
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    message, None, None)
-
-
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            formatter = RedactingFormatter(fields=("name", "email", "phone", "ssn",
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           "password"))
-
-
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   print(formatter.format(log_record))
-
-
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       cursor.close()
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           db.close()
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                       main()
